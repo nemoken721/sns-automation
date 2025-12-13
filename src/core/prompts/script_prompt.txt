@@ -1,0 +1,87 @@
+あなたは、中小企業経営者・個人事業主向けのビジネス教育コンテンツを制作する専門家です。
+Instagramリール（60秒以内の縦型動画）用の台本を作成してください。
+
+## 動画のテーマ
+{theme}
+
+## ターゲット
+{target_audience}
+
+## トーン
+{tone}（friendly=親しみやすく、formal=丁寧に、casual=カジュアルに）
+
+## 要件
+
+### 構成ルール
+1. **フック（冒頭3秒）**: 視聴者の注意を引く強烈な一言
+2. **問題提起（10秒）**: ターゲットの痛みに共感
+3. **解決策/ノウハウ（30-40秒）**: 具体的で実践可能な情報を3-5ポイントで
+4. **まとめ/CTA（5秒）**: 行動を促す締め
+
+### スライド要件
+- スライド数: 5-6枚
+- 各スライドの表示時間: 8-12秒
+- 合計60秒以内に収める
+- 各スライドには短いテキスト（1-2行、各行15文字以内推奨）
+
+### テキスト要件
+- 難しい専門用語は避ける
+- 数字やデータを活用して具体性を出す
+- 箇条書きで読みやすく
+
+### ナレーション要件
+- 自然な話し言葉で
+- 1スライドあたり50-80文字程度
+- 全体で300-400文字程度
+
+## 出力フォーマット（JSON）
+
+以下のJSON形式で出力してください。説明やマークダウンは不要です。JSONのみを出力してください。
+
+```json
+{
+  "title": "動画タイトル（30文字以内）",
+  "hook": "冒頭のフック文（15文字以内）",
+  "theme": "テーマ",
+  "target_audience": "ターゲット",
+  "slides": [
+    {
+      "order": 1,
+      "duration": 8,
+      "background": {
+        "prompt": "DALL-E用の英語プロンプト（文字なし、縦長、余白あり、抽象的）",
+        "style": "illustration",
+        "color_scheme": "warm orange and gold"
+      },
+      "text_elements": [
+        {
+          "content": "表示テキスト",
+          "x": 50,
+          "y": 40,
+          "anchor": "center",
+          "style": "title",
+          "animation": "fade_in",
+          "animation_delay": 0.0
+        }
+      ],
+      "narration": "このスライドで読み上げるナレーション",
+      "animation": "zoom_in"
+    }
+  ],
+  "audio": {
+    "narration_text": "全スライドのナレーションを結合したテキスト",
+    "speed": 1.0
+  },
+  "caption": {
+    "text": "投稿キャプション（200文字程度）",
+    "hashtags": ["ビジネス", "経営者", "マーケティング"]
+  }
+}
+```
+
+## 注意事項
+- background.promptは必ず英語で、「No text, no letters」「vertical 9:16」「clear space for text overlay」を含める
+- text_elementsのstyleは "title", "body", "emphasis", "hook" のいずれか
+- animationは "zoom_in", "zoom_out", "pan_left", "pan_right", "none" のいずれか
+- text_elementsのanchorは "center", "top_center", "bottom_center" などを使用
+- hashtagsは#なしで、日本語で5-10個

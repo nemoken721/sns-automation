@@ -1,0 +1,238 @@
+# ==============================================
+# SNS Automation System - Configuration
+# ==============================================
+
+# ----------------------------------------------
+# Video Settings (動画設定)
+# ----------------------------------------------
+video:
+  # 出力解像度 (Instagram Reels: 1080x1920)
+  width: 1080
+  height: 1920
+
+  # フレームレート
+  fps: 30
+
+  # 最大長さ（秒）
+  max_duration: 60
+
+  # ビットレート
+  video_bitrate: "8M"
+  audio_bitrate: "192k"
+
+  # コーデック
+  video_codec: "libx264"
+  audio_codec: "aac"
+
+  # 出力形式
+  format: "mp4"
+
+# ----------------------------------------------
+# Slide Settings (スライド設定)
+# ----------------------------------------------
+slides:
+  # スライド枚数
+  min_slides: 4
+  max_slides: 8
+
+  # 1スライドあたりの表示時間（秒）
+  default_duration: 8
+
+  # トランジション時間（秒）
+  transition_duration: 0.3
+
+  # Ken Burns エフェクト (ズーム効果)
+  zoom:
+    enabled: true
+    start_scale: 1.0
+    end_scale: 1.1
+
+# ----------------------------------------------
+# Font Settings (フォント設定)
+# ----------------------------------------------
+fonts:
+  # フォントディレクトリ
+  directory: "assets/fonts"
+
+  # フォントファイル名
+  regular: "NotoSansJP-Regular.ttf"
+  medium: "NotoSansJP-Medium.ttf"
+  bold: "NotoSansJP-Bold.ttf"
+  black: "NotoSansJP-Black.ttf"
+
+  # テキストスタイル
+  styles:
+    title:
+      font: "bold"
+      size: 72
+      color: "#FFFFFF"
+      stroke_width: 3
+      stroke_color: "#000000"
+
+    body:
+      font: "medium"
+      size: 48
+      color: "#FFFFFF"
+      stroke_width: 2
+      stroke_color: "#333333"
+
+    emphasis:
+      font: "black"
+      size: 64
+      color: "#FFD700"
+      stroke_width: 4
+      stroke_color: "#000000"
+
+    hook:
+      font: "black"
+      size: 56
+      color: "#FF6B6B"
+      stroke_width: 3
+      stroke_color: "#000000"
+
+# ----------------------------------------------
+# Image Generation Settings (画像生成設定)
+# ----------------------------------------------
+image_generation:
+  # DALL-E 3 設定
+  dalle:
+    model: "dall-e-3"
+    size: "1024x1792"  # 縦長
+    quality: "standard"  # "standard" or "hd"
+    style: "vivid"       # "vivid" or "natural"
+
+  # プロンプトテンプレート
+  prompt_template: |
+    Create a {style} background image for a business educational video.
+    Theme: {theme}
+    Color scheme: {color_scheme}
+
+    STRICT Requirements:
+    - Absolutely NO text, letters, numbers, or characters in the image
+    - Leave generous clear space in the center for text overlay
+    - Aspect ratio: 9:16 (vertical/portrait orientation)
+    - Style: Modern, clean, professional
+    - Do NOT include any human faces or identifiable people
+    - Abstract or symbolic representations preferred
+
+  # デフォルトスタイル
+  default_styles:
+    - illustration
+    - abstract
+    - minimalist
+
+  # デフォルトカラースキーム
+  default_color_schemes:
+    - warm orange and gold
+    - cool blue and teal
+    - professional navy and white
+    - energetic purple and pink
+
+# ----------------------------------------------
+# Audio Settings (音声設定)
+# ----------------------------------------------
+audio:
+  # Fish Audio 設定 (日本語に強いTTS)
+  fish_audio:
+    # API エンドポイント
+    api_url: "https://api.fish.audio/v1/tts"
+
+    # 音声モデル設定
+    # 日本語ボイス一覧: https://fish.audio/
+    # 推奨: 日本語ネイティブボイスを選択
+    format: "mp3"
+
+    # 音声パラメータ
+    # chunk_length: 生成する音声のチャンク長 (100-300推奨)
+    chunk_length: 200
+
+    # 正規化設定
+    normalize: true
+
+    # レイテンシー設定 ("normal" or "balanced")
+    latency: "normal"
+
+  # 読み上げ速度 (0.5 - 2.0)
+  speed: 1.0
+
+  # BGM設定
+  bgm:
+    directory: "assets/bgm"
+    volume: 0.15  # BGM音量 (0.0 - 1.0)
+
+  # 音声正規化
+  normalization:
+    target_lufs: -14
+
+# ----------------------------------------------
+# AI Settings (AI設定)
+# ----------------------------------------------
+ai:
+  # Gemini 設定
+  gemini:
+    model: "gemini-2.0-flash"
+    temperature: 0.7
+    top_p: 0.9
+    top_k: 40
+    max_output_tokens: 8192
+
+  # 企画生成時の設定
+  planning:
+    temperature: 0.8
+    winning_pattern_ratio: 0.7
+    trend_ratio: 0.3
+
+  # 台本生成時の設定
+  script:
+    temperature: 0.5
+
+# ----------------------------------------------
+# Content Settings (コンテンツ設定)
+# ----------------------------------------------
+content:
+  # ターゲットオーディエンス
+  target_audience: "中小企業経営者・個人事業主"
+
+  # メインテーマ
+  main_themes:
+    - マーケティング
+    - 財務管理
+    - 経営戦略
+    - 生産性向上
+    - リーダーシップ
+
+  # トーン
+  tone_of_voice: "friendly"  # formal, casual, friendly
+
+  # ハッシュタグ（共通）
+  common_hashtags:
+    - ビジネス
+    - 経営者
+    - 起業家
+    - 中小企業
+    - マーケティング
+    - ビジネスTips
+
+# ----------------------------------------------
+# Output Settings (出力設定)
+# ----------------------------------------------
+output:
+  # 出力ディレクトリ
+  directory: "output"
+
+  # ファイル名フォーマット
+  filename_format: "{date}_{title}_{id}"
+
+  # 一時ファイルディレクトリ
+  temp_directory: "output/temp"
+
+  # 一時ファイルを保持するか
+  keep_temp_files: false
+
+# ----------------------------------------------
+# Logging Settings (ログ設定)
+# ----------------------------------------------
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/app.log"

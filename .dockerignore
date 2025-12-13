@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Output
+output/
+logs/
+*.log
+
+# Web app (deployed separately)
+web/
+
+# Documentation
+*.md
+docs/
+
+# Tests
+tests/
+pytest.ini
+
+# Misc
+.DS_Store
+Thumbs.db
+*.json
+!config/*.json

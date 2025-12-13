@@ -1,0 +1,5 @@
+Collecting ormsgpack
+  Using cached ormsgpack-1.12.0-cp311-cp311-win_amd64.whl.metadata (1.2 kB)
+Using cached ormsgpack-1.12.0-cp311-cp311-win_amd64.whl (112 kB)
+Installing collected packages: ormsgpack
+Successfully installed ormsgpack-1.12.0
