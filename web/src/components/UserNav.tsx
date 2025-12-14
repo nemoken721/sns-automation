@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { User } from '@supabase/supabase-js'
 import { useState } from 'react'
+import Link from 'next/link'
+import { Settings, LogOut } from 'lucide-react'
 
 interface UserNavProps {
   user: User
@@ -51,10 +53,19 @@ export function UserNav({ user }: UserNavProps) {
               <p className="text-sm text-gray-400">ログイン中</p>
               <p className="text-sm text-white truncate">{user.email}</p>
             </div>
+            <Link
+              href="/dashboard/settings"
+              onClick={() => setIsOpen(false)}
+              className="w-full flex items-center gap-2 px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              設定
+            </Link>
             <button
               onClick={handleLogout}
-              className="w-full text-left px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+              className="w-full flex items-center gap-2 text-left px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
             >
+              <LogOut className="w-4 h-4" />
               ログアウト
             </button>
           </div>
