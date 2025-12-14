@@ -66,8 +66,7 @@ def generate_video():
         video_blob_name = f"{user_id}/{video_id}/video.mp4"
         video_blob = bucket.blob(video_blob_name)
         video_blob.upload_from_filename(str(video_path))
-        video_blob.make_public()
-        video_url = video_blob.public_url
+        video_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{video_blob_name}"
 
         logger.info(f"Video uploaded: {video_url}")
 
@@ -94,8 +93,7 @@ def generate_video():
                 thumb_blob_name = f"{user_id}/{video_id}/thumbnail.png"
                 thumb_blob = bucket.blob(thumb_blob_name)
                 thumb_blob.upload_from_filename(str(slides[0]))
-                thumb_blob.make_public()
-                thumbnail_url = thumb_blob.public_url
+                thumbnail_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{thumb_blob_name}"
 
         # 一時ファイルを削除
         import shutil
