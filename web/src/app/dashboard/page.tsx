@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { VideoGeneratorForm } from '@/components/VideoGeneratorForm'
-import { VideoList } from '@/components/VideoList'
+import { DashboardContent } from '@/components/DashboardContent'
 import { UserNav } from '@/components/UserNav'
 
 export default async function DashboardPage() {
@@ -30,7 +30,7 @@ export default async function DashboardPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-4 gap-8">
           {/* 動画生成フォーム */}
           <div className="lg:col-span-1">
             <div className="bg-gray-800 rounded-xl p-6 shadow-xl sticky top-24">
@@ -41,12 +41,9 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* 動画一覧 */}
-          <div className="lg:col-span-2">
-            <h2 className="text-xl font-semibold text-white mb-4">
-              作成した動画
-            </h2>
-            <VideoList videos={videos || []} />
+          {/* カレンダー/リスト表示 */}
+          <div className="lg:col-span-3">
+            <DashboardContent videos={videos || []} />
           </div>
         </div>
       </main>

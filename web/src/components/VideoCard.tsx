@@ -1,10 +1,23 @@
 'use client'
 
-import { Video } from '@/types/database'
 import { useState } from 'react'
+
+interface Video {
+  id: string
+  title: string
+  theme: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  video_url: string | null
+  thumbnail_url: string | null
+  caption: string | null
+  created_at: string
+  scheduled_at: string | null
+  error_message?: string | null
+}
 
 interface VideoCardProps {
   video: Video
+  onClick?: () => void
 }
 
 const statusLabels: Record<Video['status'], { label: string; color: string }> = {
@@ -14,13 +27,16 @@ const statusLabels: Record<Video['status'], { label: string; color: string }> = 
   failed: { label: '失敗', color: 'bg-red-500' },
 }
 
-export function VideoCard({ video }: VideoCardProps) {
+export function VideoCard({ video, onClick }: VideoCardProps) {
   const [showCaption, setShowCaption] = useState(false)
   const status = statusLabels[video.status]
   const createdAt = new Date(video.created_at).toLocaleString('ja-JP')
 
   return (
-    <div className="bg-gray-800 rounded-xl p-4 shadow-lg">
+    <div
+      className="bg-gray-800 rounded-xl p-4 shadow-lg cursor-pointer hover:bg-gray-750 transition-colors"
+      onClick={onClick}
+    >
       <div className="flex items-start gap-4">
         {/* サムネイル */}
         <div className="w-32 h-56 bg-gray-700 rounded-lg flex-shrink-0 overflow-hidden">
