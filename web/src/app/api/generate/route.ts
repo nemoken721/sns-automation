@@ -26,14 +26,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 動画レコードを作成（pending状態）
+    // 動画レコードを作成（processing状態）
     const { data: video, error: insertError } = await supabase
       .from('videos')
       .insert({
         user_id: userId,
         title: theme.slice(0, 50),
         theme: theme,
-        status: 'pending',
+        status: 'processing',
       })
       .select()
       .single()
@@ -46,13 +46,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // バックグラウンドで動画生成を開始（Cloud Run経由）
-    generateVideoInBackground(video.id, theme, userId, supabase)
+    console.log(`Starting video generation via Cloud Run: ${video.id}`)
 
+    // Cloud Run APIを呼び出し（レスポンスを待たない - Fire and Forget）
+    // Cloud Runが完了時に直接Supabaseを更新する
+    fetch(`${CLOUD_RUN_URL}/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        theme: theme,
+        video_id: video.id,
+        user_id: userId,
+      }),
+    }).catch(error => {
+      // エラーをログに記録するが、すでにレスポンスは返しているので何もできない
+      console.error('Cloud Run API error (fire-and-forget):', error)
+    })
+
+    // すぐにレスポンスを返す（Vercelのタイムアウトを回避）
     return NextResponse.json({
       success: true,
       videoId: video.id,
-      message: '動画生成を開始しました',
+      message: '動画生成を開始しました。完了までお待ちください。',
     })
   } catch (error) {
     console.error('API error:', error)
@@ -60,76 +77,5 @@ export async function POST(request: NextRequest) {
       { error: 'サーバーエラー' },
       { status: 500 }
     )
-  }
-}
-
-// Cloud Runで動画生成
-async function generateVideoInBackground(
-  videoId: string,
-  theme: string,
-  userId: string,
-  supabase: any
-) {
-  try {
-    // ステータスを processing に更新
-    await supabase
-      .from('videos')
-      .update({ status: 'processing' })
-      .eq('id', videoId)
-
-    console.log(`Starting video generation via Cloud Run: ${videoId}`)
-
-    // Cloud Run APIを呼び出し
-    const response = await fetch(`${CLOUD_RUN_URL}/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        theme: theme,
-        video_id: videoId,
-        user_id: userId,
-      }),
-    })
-
-    const result = await response.json()
-
-    if (response.ok && result.success) {
-      // 成功時 - Cloud Storageの公開URLを保存
-      await supabase
-        .from('videos')
-        .update({
-          status: 'completed',
-          video_url: result.video_url,
-          thumbnail_url: result.thumbnail_url,
-          caption: result.caption,
-          title: result.title || theme.slice(0, 50),
-        })
-        .eq('id', videoId)
-
-      console.log(`Video generation completed: ${videoId}`)
-      console.log(`Video URL: ${result.video_url}`)
-    } else {
-      // 失敗時
-      const errorMessage = result.error || '動画生成に失敗しました'
-      await supabase
-        .from('videos')
-        .update({
-          status: 'failed',
-          error_message: errorMessage,
-        })
-        .eq('id', videoId)
-
-      console.error(`Video generation failed: ${videoId}`, errorMessage)
-    }
-  } catch (error) {
-    console.error('Cloud Run API error:', error)
-    await supabase
-      .from('videos')
-      .update({
-        status: 'failed',
-        error_message: error instanceof Error ? error.message : 'Cloud Run API エラー',
-      })
-      .eq('id', videoId)
   }
 }
