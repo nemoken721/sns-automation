@@ -11,6 +11,7 @@ from pathlib import Path
 
 from flask import Flask, request, jsonify
 from google.cloud import storage
+from supabase import create_client, Client
 
 # ロギング設定
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +22,13 @@ app = Flask(__name__)
 # Google Cloud Storage クライアント
 storage_client = storage.Client()
 BUCKET_NAME = os.environ.get('GCS_BUCKET_NAME', 'sns-automation-videos-481101')
+
+# Supabase クライアント
+SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://quniezwdekelumnshhad.supabase.co')
+SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
+
+def get_supabase() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 @app.route('/health', methods=['GET'])
@@ -101,6 +109,21 @@ def generate_video():
         if output_dir.exists():
             shutil.rmtree(output_dir)
 
+        # Supabaseのvideosテーブルを更新
+        if SUPABASE_KEY:
+            try:
+                supabase = get_supabase()
+                supabase.table('videos').update({
+                    'status': 'completed',
+                    'video_url': video_url,
+                    'thumbnail_url': thumbnail_url,
+                    'title': title,
+                    'caption': caption,
+                }).eq('id', video_id).execute()
+                logger.info(f"Supabase updated for video: {video_id}")
+            except Exception as db_error:
+                logger.error(f"Failed to update Supabase: {db_error}")
+
         return jsonify({
             'success': True,
             'video_id': video_id,
@@ -112,6 +135,18 @@ def generate_video():
 
     except Exception as e:
         logger.error(f"Video generation failed: {e}", exc_info=True)
+
+        # エラー時もSupabaseを更新
+        if SUPABASE_KEY and 'video_id' in locals():
+            try:
+                supabase = get_supabase()
+                supabase.table('videos').update({
+                    'status': 'failed',
+                    'error_message': str(e),
+                }).eq('id', video_id).execute()
+            except Exception as db_error:
+                logger.error(f"Failed to update Supabase on error: {db_error}")
+
         return jsonify({
             'success': False,
             'error': str(e),
