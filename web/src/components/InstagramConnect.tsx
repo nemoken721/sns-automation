@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Instagram, CheckCircle, XCircle, Loader2, Unlink, RefreshCw } from 'lucide-react'
+import { Instagram, CheckCircle, XCircle, Loader2, Unlink, RefreshCw, Key, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -19,6 +19,10 @@ interface InstagramConnectProps {
 export function InstagramConnect({ profile }: InstagramConnectProps) {
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isManualConnecting, setIsManualConnecting] = useState(false)
+  const [showManualForm, setShowManualForm] = useState(false)
+  const [manualAccountId, setManualAccountId] = useState('')
+  const [manualAccessToken, setManualAccessToken] = useState('')
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   const isConnected = profile?.ig_user_id && profile?.ig_access_token
@@ -78,6 +82,41 @@ export function InstagramConnect({ profile }: InstagramConnectProps) {
       setMessage({ type: 'error', text: 'エラーが発生しました' })
     } finally {
       setIsRefreshing(false)
+    }
+  }
+
+  const handleManualConnect = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!manualAccountId || !manualAccessToken) {
+      setMessage({ type: 'error', text: 'アカウントIDとアクセストークンを入力してください' })
+      return
+    }
+
+    setIsManualConnecting(true)
+    setMessage(null)
+    try {
+      const response = await fetch('/api/auth/instagram/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ig_user_id: manualAccountId,
+          ig_access_token: manualAccessToken,
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Instagram連携が完了しました' })
+        setTimeout(() => window.location.reload(), 1500)
+      } else {
+        setMessage({ type: 'error', text: data.error || '連携に失敗しました' })
+      }
+    } catch (error) {
+      console.error('Manual connect error:', error)
+      setMessage({ type: 'error', text: 'エラーが発生しました' })
+    } finally {
+      setIsManualConnecting(false)
     }
   }
 
@@ -203,22 +242,104 @@ export function InstagramConnect({ profile }: InstagramConnectProps) {
         </div>
       </div>
 
-      <div className="bg-gray-700/30 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-white mb-2">連携の前提条件</h3>
-        <ul className="text-sm text-gray-400 space-y-1 list-disc list-inside">
-          <li>Facebookページを持っていること</li>
-          <li>Instagramビジネス/クリエイターアカウントがFacebookページに連携されていること</li>
-          <li>Meta for Developersでアプリが作成されていること</li>
-        </ul>
+      {/* メッセージ表示 */}
+      {message && (
+        <div className={`p-3 rounded-lg ${
+          message.type === 'success'
+            ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+            : 'bg-red-500/10 border border-red-500/30 text-red-400'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* 手動接続フォーム */}
+      <div className="border border-gray-600 rounded-lg overflow-hidden">
+        <button
+          onClick={() => setShowManualForm(!showManualForm)}
+          className="w-full flex items-center justify-between p-4 bg-gray-700/50 hover:bg-gray-700 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Key className="w-5 h-5 text-gray-400" />
+            <span className="text-white font-medium">手動で連携する（Graph API Explorer）</span>
+          </div>
+          {showManualForm ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
+
+        {showManualForm && (
+          <div className="p-4 bg-gray-800/50 space-y-4">
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-sm text-blue-400">
+              <p className="font-medium mb-2">手順:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>
+                  <a
+                    href="https://developers.facebook.com/tools/explorer/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-blue-300 inline-flex items-center gap-1"
+                  >
+                    Graph API Explorer <ExternalLink className="w-3 h-3" />
+                  </a>
+                  を開く
+                </li>
+                <li>アプリを選択し、「ユーザートークンを取得」をクリック</li>
+                <li>instagram_basic, instagram_content_publish を選択</li>
+                <li>「Generate Access Token」をクリック</li>
+                <li>アクセストークンをコピー</li>
+                <li>InstagramビジネスアカウントIDを取得（APIで確認可能）</li>
+              </ol>
+            </div>
+
+            <form onSubmit={handleManualConnect} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">
+                  Instagram Business Account ID
+                </label>
+                <input
+                  type="text"
+                  value={manualAccountId}
+                  onChange={(e) => setManualAccountId(e.target.value)}
+                  placeholder="例: 17841477678035837"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">
+                  アクセストークン
+                </label>
+                <textarea
+                  value={manualAccessToken}
+                  onChange={(e) => setManualAccessToken(e.target.value)}
+                  placeholder="EAAMNHesdV24BQ..."
+                  rows={3}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isManualConnecting}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isManualConnecting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Key className="w-5 h-5" />
+                )}
+                手動で連携する
+              </button>
+            </form>
+          </div>
+        )}
       </div>
 
-      <button
-        onClick={handleConnect}
-        className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg transition-colors font-medium"
-      >
-        <Instagram className="w-5 h-5" />
-        Instagramと連携する
-      </button>
+      {/* OAuth連携（将来的に使用） */}
+      <div className="text-center text-gray-500 text-sm">
+        <p>OAuthによる自動連携は準備中です</p>
+      </div>
     </div>
   )
 }
