@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { notifyVideoPublished, notifyVideoFailed } from '@/lib/notifications'
+import {
+  parseInstagramError,
+  getUserFriendlyMessage
+} from '@/lib/instagram-errors'
 
 // 動的レンダリングを強制
 export const dynamic = 'force-dynamic'
+
+// Admin client for service operations
+const supabaseAdmin = createAdminClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 // Instagram Reels投稿API
 export async function POST(request: NextRequest) {
@@ -15,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { videoId } = body
+    const { videoId, caption } = body
 
     if (!videoId) {
       return NextResponse.json({ error: 'videoId is required' }, { status: 400 })
@@ -37,40 +49,118 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Video is not ready for publishing' }, { status: 400 })
     }
 
-    // プロフィールからInstagram認証情報を取得
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('ig_user_id, ig_access_token')
-      .eq('id', user.id)
+    // Instagram認証情報を取得（instagram_credentialsテーブルを優先）
+    let igCredentials = null
+
+    const { data: credentials } = await supabase
+      .from('instagram_credentials')
+      .select('ig_user_id, access_token')
+      .eq('user_id', user.id)
       .single()
 
-    if (profileError || !profile?.ig_user_id || !profile?.ig_access_token) {
+    if (credentials) {
+      igCredentials = {
+        igUserId: credentials.ig_user_id,
+        accessToken: credentials.access_token
+      }
+    } else {
+      // フォールバック: profilesテーブル
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('ig_user_id, ig_access_token')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.ig_user_id && profile?.ig_access_token) {
+        igCredentials = {
+          igUserId: profile.ig_user_id,
+          accessToken: profile.ig_access_token
+        }
+      }
+    }
+
+    if (!igCredentials) {
       return NextResponse.json({ error: 'Instagram not connected' }, { status: 400 })
+    }
+
+    // instagram_postsレコードを作成
+    const { data: igPost, error: igPostError } = await supabaseAdmin
+      .from('instagram_posts')
+      .insert({
+        video_id: videoId,
+        user_id: user.id,
+        caption: caption || video.caption || '',
+        status: 'uploading'
+      })
+      .select()
+      .single()
+
+    if (igPostError) {
+      console.error('Failed to create instagram_post:', igPostError)
+      // instagram_postsテーブルがなくても処理を継続
     }
 
     // Instagram Reels投稿を実行
     const result = await publishToInstagram({
-      igUserId: profile.ig_user_id,
-      accessToken: profile.ig_access_token,
+      igUserId: igCredentials.igUserId,
+      accessToken: igCredentials.accessToken,
       videoUrl: video.video_url,
-      caption: video.caption || '',
+      caption: caption || video.caption || '',
+      igPostId: igPost?.id
     })
 
     if (!result.success) {
-      // エラーを記録
+      const parsedError = parseInstagramError(result.originalError || { error: { message: result.error } })
+      const userMessage = getUserFriendlyMessage(parsedError.code)
+
+      // instagram_postsを更新
+      if (igPost?.id) {
+        await supabaseAdmin
+          .from('instagram_posts')
+          .update({
+            status: 'failed',
+            error_code: parsedError.code,
+            error_message: result.error,
+            retry_count: (igPost.retry_count || 0) + 1
+          })
+          .eq('id', igPost.id)
+      }
+
+      // videosテーブルも更新
       await supabase
         .from('videos')
         .update({
           status: 'failed',
-          error_message: result.error,
+          error_message: userMessage,
           updated_at: new Date().toISOString(),
         })
         .eq('id', videoId)
 
-      return NextResponse.json({ error: result.error }, { status: 500 })
+      // 失敗通知
+      await notifyVideoFailed(user.id, videoId, video.title || '動画', userMessage)
+
+      return NextResponse.json({
+        error: userMessage,
+        errorCode: parsedError.code,
+        retryable: parsedError.retryable
+      }, { status: 500 })
     }
 
-    // 成功時の更新
+    // instagram_postsを更新
+    if (igPost?.id) {
+      await supabaseAdmin
+        .from('instagram_posts')
+        .update({
+          status: 'published',
+          ig_container_id: result.containerId,
+          ig_media_id: result.mediaId,
+          ig_permalink: result.permalink,
+          published_at: new Date().toISOString()
+        })
+        .eq('id', igPost.id)
+    }
+
+    // videosテーブルを更新
     await supabase
       .from('videos')
       .update({
@@ -79,6 +169,9 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', videoId)
+
+    // 成功通知
+    await notifyVideoPublished(user.id, videoId, video.title || '動画')
 
     return NextResponse.json({
       success: true,
@@ -96,20 +189,24 @@ interface PublishParams {
   accessToken: string
   videoUrl: string
   caption: string
+  igPostId?: string
 }
 
 interface PublishResult {
   success: boolean
+  containerId?: string
   mediaId?: string
   permalink?: string
   error?: string
+  originalError?: unknown
 }
 
 async function publishToInstagram(params: PublishParams): Promise<PublishResult> {
-  const { igUserId, accessToken, videoUrl, caption } = params
+  const { igUserId, accessToken, videoUrl, caption, igPostId } = params
 
   try {
     // Step 1: メディアコンテナを作成
+    console.log('Creating media container...')
     const containerResponse = await fetch(
       `https://graph.facebook.com/v18.0/${igUserId}/media`,
       {
@@ -124,19 +221,35 @@ async function publishToInstagram(params: PublishParams): Promise<PublishResult>
       }
     )
 
-    if (!containerResponse.ok) {
-      const error = await containerResponse.json()
-      console.error('Container creation error:', error)
-      return { success: false, error: error?.error?.message || 'Failed to create media container' }
+    const containerData = await containerResponse.json()
+
+    if (!containerResponse.ok || containerData.error) {
+      console.error('Container creation error:', containerData)
+      return {
+        success: false,
+        error: containerData?.error?.message || 'Failed to create media container',
+        originalError: containerData
+      }
     }
 
-    const containerData = await containerResponse.json()
     const containerId = containerData.id
+    console.log('Container created:', containerId)
 
-    // Step 2: メディアの処理状態を確認（最大60秒待機）
+    // instagram_postsのステータスを更新
+    if (igPostId) {
+      await supabaseAdmin
+        .from('instagram_posts')
+        .update({
+          status: 'processing',
+          ig_container_id: containerId
+        })
+        .eq('id', igPostId)
+    }
+
+    // Step 2: メディアの処理状態を確認（最大90秒待機）
     let status = 'IN_PROGRESS'
     let attempts = 0
-    const maxAttempts = 30 // 2秒間隔で30回 = 60秒
+    const maxAttempts = 45 // 2秒間隔で45回 = 90秒
 
     while (status === 'IN_PROGRESS' && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 2000))
@@ -148,16 +261,23 @@ async function publishToInstagram(params: PublishParams): Promise<PublishResult>
       if (statusResponse.ok) {
         const statusData = await statusResponse.json()
         status = statusData.status_code
+        console.log(`Processing status (${attempts + 1}/${maxAttempts}): ${status}`)
       }
 
       attempts++
     }
 
     if (status !== 'FINISHED') {
-      return { success: false, error: `Media processing failed: ${status}` }
+      return {
+        success: false,
+        containerId,
+        error: `Media processing failed: ${status}`,
+        originalError: { error: { message: `Processing status: ${status}` } }
+      }
     }
 
     // Step 3: メディアを公開
+    console.log('Publishing media...')
     const publishResponse = await fetch(
       `https://graph.facebook.com/v18.0/${igUserId}/media_publish`,
       {
@@ -170,29 +290,49 @@ async function publishToInstagram(params: PublishParams): Promise<PublishResult>
       }
     )
 
-    if (!publishResponse.ok) {
-      const error = await publishResponse.json()
-      console.error('Publish error:', error)
-      return { success: false, error: error?.error?.message || 'Failed to publish media' }
+    const publishData = await publishResponse.json()
+
+    if (!publishResponse.ok || publishData.error) {
+      console.error('Publish error:', publishData)
+      return {
+        success: false,
+        containerId,
+        error: publishData?.error?.message || 'Failed to publish media',
+        originalError: publishData
+      }
     }
 
-    const publishData = await publishResponse.json()
     const mediaId = publishData.id
+    console.log('Media published:', mediaId)
 
     // Step 4: パーマリンクを取得
-    const mediaResponse = await fetch(
-      `https://graph.facebook.com/v18.0/${mediaId}?fields=permalink&access_token=${accessToken}`
-    )
-
     let permalink = null
-    if (mediaResponse.ok) {
-      const mediaData = await mediaResponse.json()
-      permalink = mediaData.permalink
+    try {
+      const mediaResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${mediaId}?fields=permalink&access_token=${accessToken}`
+      )
+
+      if (mediaResponse.ok) {
+        const mediaData = await mediaResponse.json()
+        permalink = mediaData.permalink
+      }
+    } catch (e) {
+      console.error('Failed to get permalink:', e)
+      // パーマリンク取得失敗は無視
     }
 
-    return { success: true, mediaId, permalink }
+    return {
+      success: true,
+      containerId,
+      mediaId,
+      permalink
+    }
   } catch (error) {
     console.error('Instagram API error:', error)
-    return { success: false, error: 'Instagram API error' }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Instagram API error',
+      originalError: error
+    }
   }
 }

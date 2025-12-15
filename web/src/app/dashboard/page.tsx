@@ -5,7 +5,7 @@ import { DashboardContent } from '@/components/DashboardContent'
 import { UserNav } from '@/components/UserNav'
 import { NotificationBell } from '@/components/NotificationBell'
 import Link from 'next/link'
-import { TrendingUp, Settings } from 'lucide-react'
+import { TrendingUp, Settings, Instagram } from 'lucide-react'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -29,6 +29,13 @@ export default async function DashboardPage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold text-white">SNS Automation</h1>
           <div className="flex items-center gap-4">
+            <Link
+              href="/dashboard/posts"
+              className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+            >
+              <Instagram className="w-5 h-5" />
+              <span className="hidden sm:inline">投稿履歴</span>
+            </Link>
             <Link
               href="/dashboard/analytics"
               className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
