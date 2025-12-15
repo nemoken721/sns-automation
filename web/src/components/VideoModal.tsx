@@ -2,19 +2,7 @@
 
 import { useState } from 'react'
 import { X, Download, Play, Pause, CheckCircle, XCircle, Clock, Loader2, Copy, Check, ExternalLink } from 'lucide-react'
-
-interface Video {
-  id: string
-  title: string
-  theme: string
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  video_url: string | null
-  thumbnail_url: string | null
-  caption: string | null
-  created_at: string
-  scheduled_at: string | null
-  error_message?: string | null
-}
+import { Video } from '@/types/video'
 
 interface VideoModalProps {
   video: Video

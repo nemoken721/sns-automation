@@ -5,19 +5,7 @@ import { Calendar as CalendarIcon, LayoutGrid } from 'lucide-react'
 import { Calendar } from './Calendar'
 import { VideoList } from './VideoList'
 import { VideoModal } from './VideoModal'
-
-interface Video {
-  id: string
-  title: string
-  theme: string
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  video_url: string | null
-  thumbnail_url: string | null
-  caption: string | null
-  created_at: string
-  scheduled_at: string | null
-  error_message?: string | null
-}
+import { Video } from '@/types/video'
 
 interface DashboardContentProps {
   videos: Video[]

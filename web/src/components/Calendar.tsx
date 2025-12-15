@@ -1,18 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Video, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react'
-
-interface Video {
-  id: string
-  title: string
-  theme: string
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  video_url: string | null
-  thumbnail_url: string | null
-  created_at: string
-  scheduled_at: string | null
-}
+import { ChevronLeft, ChevronRight, Video as VideoIcon, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Video } from '@/types/video'
 
 interface CalendarProps {
   videos: Video[]
