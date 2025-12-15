@@ -5,6 +5,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/retry-failed",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/collect-analytics",
       "schedule": "0 */6 * * *"
     },

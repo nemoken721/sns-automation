@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Instagram, CheckCircle, XCircle, Loader2, Unlink } from 'lucide-react'
+import { Instagram, CheckCircle, XCircle, Loader2, Unlink, RefreshCw } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -18,6 +18,8 @@ interface InstagramConnectProps {
 
 export function InstagramConnect({ profile }: InstagramConnectProps) {
   const [isDisconnecting, setIsDisconnecting] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   const isConnected = profile?.ig_user_id && profile?.ig_access_token
   const tokenExpiresAt = profile?.ig_token_expires_at
@@ -36,21 +38,46 @@ export function InstagramConnect({ profile }: InstagramConnectProps) {
     if (!confirm('Instagram連携を解除しますか？')) return
 
     setIsDisconnecting(true)
+    setMessage(null)
     try {
-      const response = await fetch('/api/auth/instagram/disconnect', {
+      const response = await fetch('/api/instagram/disconnect', {
         method: 'POST',
       })
 
       if (response.ok) {
         window.location.reload()
       } else {
-        alert('連携解除に失敗しました')
+        setMessage({ type: 'error', text: '連携解除に失敗しました' })
       }
     } catch (error) {
       console.error('Disconnect error:', error)
-      alert('エラーが発生しました')
+      setMessage({ type: 'error', text: 'エラーが発生しました' })
     } finally {
       setIsDisconnecting(false)
+    }
+  }
+
+  const handleRefreshToken = async () => {
+    setIsRefreshing(true)
+    setMessage(null)
+    try {
+      const response = await fetch('/api/instagram/refresh-token', {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'トークンを更新しました' })
+        setTimeout(() => window.location.reload(), 1500)
+      } else {
+        setMessage({ type: 'error', text: data.error || 'トークン更新に失敗しました' })
+      }
+    } catch (error) {
+      console.error('Refresh token error:', error)
+      setMessage({ type: 'error', text: 'エラーが発生しました' })
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -106,15 +133,39 @@ export function InstagramConnect({ profile }: InstagramConnectProps) {
           </div>
         )}
 
+        {/* メッセージ表示 */}
+        {message && (
+          <div className={`p-3 rounded-lg ${
+            message.type === 'success'
+              ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+              : 'bg-red-500/10 border border-red-500/30 text-red-400'
+          }`}>
+            {message.text}
+          </div>
+        )}
+
         {/* アクションボタン */}
-        <div className="flex gap-3">
-          {isTokenExpired && (
+        <div className="flex gap-3 flex-wrap">
+          {isTokenExpired ? (
             <button
               onClick={handleConnect}
               className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg transition-colors"
             >
               <Instagram className="w-5 h-5" />
               再連携する
+            </button>
+          ) : (
+            <button
+              onClick={handleRefreshToken}
+              disabled={isRefreshing}
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isRefreshing ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-5 h-5" />
+              )}
+              トークン更新
             </button>
           )}
           <button
