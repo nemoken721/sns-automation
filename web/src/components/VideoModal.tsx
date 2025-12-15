@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Download, Play, Pause, CheckCircle, XCircle, Clock, Loader2, Copy, Check, ExternalLink } from 'lucide-react'
+import { X, Download, Play, Pause, CheckCircle, XCircle, Clock, Loader2, Copy, Check, ExternalLink, Instagram, Send } from 'lucide-react'
 import { Video } from '@/types/video'
 
 interface VideoModalProps {
@@ -45,6 +45,9 @@ function getStatusBadge(status: string) {
 export function VideoModal({ video, onClose }: VideoModalProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
+  const [publishSuccess, setPublishSuccess] = useState(false)
 
   const handleDownload = async () => {
     if (!video.video_url) return
@@ -83,6 +86,41 @@ export function VideoModal({ video, onClose }: VideoModalProps) {
       minute: '2-digit',
     })
   }
+
+  const handlePublishToInstagram = async () => {
+    if (!video.video_url || video.published_at) return
+
+    setIsPublishing(true)
+    setPublishError(null)
+
+    try {
+      const response = await fetch('/api/instagram/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId: video.id }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setPublishError(data.error || '投稿に失敗しました')
+        return
+      }
+
+      setPublishSuccess(true)
+      // 3秒後にリロード
+      setTimeout(() => {
+        window.location.reload()
+      }, 3000)
+    } catch (error) {
+      console.error('Publish error:', error)
+      setPublishError('ネットワークエラーが発生しました')
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+
+  const isPublished = !!video.published_at
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -148,22 +186,63 @@ export function VideoModal({ video, onClose }: VideoModalProps) {
 
             {/* アクションボタン */}
             {video.status === 'completed' && video.video_url && (
-              <div className="flex gap-3">
-                <button
-                  onClick={handleDownload}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                >
-                  <Download className="w-5 h-5" />
-                  ダウンロード
-                </button>
-                <a
-                  href={video.video_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                >
-                  <ExternalLink className="w-5 h-5" />
-                </a>
+              <div className="space-y-3">
+                {/* Instagram投稿ボタン */}
+                {publishSuccess ? (
+                  <div className="flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-lg">
+                    <CheckCircle className="w-5 h-5" />
+                    投稿完了！リロードしています...
+                  </div>
+                ) : isPublished ? (
+                  <div className="flex items-center justify-center gap-2 py-3 bg-gray-600 text-gray-300 rounded-lg cursor-not-allowed">
+                    <Instagram className="w-5 h-5" />
+                    投稿済み
+                  </div>
+                ) : (
+                  <button
+                    onClick={handlePublishToInstagram}
+                    disabled={isPublishing}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {isPublishing ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Instagram に投稿中...
+                      </>
+                    ) : (
+                      <>
+                        <Instagram className="w-5 h-5" />
+                        Instagram に投稿
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* エラーメッセージ */}
+                {publishError && (
+                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                    {publishError}
+                  </div>
+                )}
+
+                {/* ダウンロード・外部リンク */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleDownload}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                  >
+                    <Download className="w-5 h-5" />
+                    ダウンロード
+                  </button>
+                  <a
+                    href={video.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                  >
+                    <ExternalLink className="w-5 h-5" />
+                  </a>
+                </div>
               </div>
             )}
           </div>
@@ -229,6 +308,16 @@ export function VideoModal({ video, onClose }: VideoModalProps) {
                   </label>
                   <p className="text-white text-sm">
                     {formatDate(video.scheduled_at)}
+                  </p>
+                </div>
+              )}
+              {video.published_at && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    投稿日時
+                  </label>
+                  <p className="text-green-400 text-sm">
+                    {formatDate(video.published_at)}
                   </p>
                 </div>
               )}
