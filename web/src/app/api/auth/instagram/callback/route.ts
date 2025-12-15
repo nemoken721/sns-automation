@@ -55,8 +55,9 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
       console.error('Token exchange error:', errorData)
+      const errorMessage = errorData?.error?.message || 'unknown'
       return NextResponse.redirect(
-        new URL('/dashboard/settings?error=token_exchange_failed', request.url)
+        new URL(`/dashboard/settings?error=token_exchange_failed&detail=${encodeURIComponent(errorMessage)}`, request.url)
       )
     }
 
@@ -92,18 +93,27 @@ export async function GET(request: NextRequest) {
     )
 
     if (!pagesResponse.ok) {
-      console.error('Failed to get pages')
+      const errorData = await pagesResponse.json()
+      console.error('Failed to get pages:', errorData)
       return NextResponse.redirect(
-        new URL('/dashboard/settings?error=pages_failed', request.url)
+        new URL(`/dashboard/settings?error=pages_failed&detail=${encodeURIComponent(JSON.stringify(errorData))}`, request.url)
       )
     }
 
     const pagesData = await pagesResponse.json()
+    console.log('Pages response:', JSON.stringify(pagesData))
     const pages = pagesData.data || []
 
     if (pages.length === 0) {
+      // デバッグ: ユーザー情報を取得してみる
+      const meResponse = await fetch(
+        `https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${longLivedToken}`
+      )
+      const meData = await meResponse.json()
+      console.error('No pages found. User info:', meData)
+      console.error('Full pages response:', JSON.stringify(pagesData))
       return NextResponse.redirect(
-        new URL('/dashboard/settings?error=no_pages', request.url)
+        new URL(`/dashboard/settings?error=no_pages&debug=${encodeURIComponent(JSON.stringify({ user: meData, pages: pagesData }))}`, request.url)
       )
     }
 

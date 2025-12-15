@@ -8,7 +8,7 @@ import { ArrowLeft } from 'lucide-react'
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: { success?: string; error?: string }
+  searchParams: { success?: string; error?: string; detail?: string; debug?: string }
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -57,9 +57,25 @@ export default async function SettingsPage({
         {params.error && (
           <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400">
             {params.error === 'instagram_denied' && 'Instagram連携がキャンセルされました。'}
-            {params.error === 'no_pages' && 'Facebookページが見つかりません。Facebookページを作成してください。'}
+            {params.error === 'no_pages' && (
+              <div>
+                <p>Facebookページが見つかりません。Facebookページを作成してください。</p>
+                {params.debug && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm">デバッグ情報</summary>
+                    <pre className="mt-2 text-xs bg-gray-900 p-2 rounded overflow-auto max-h-40">
+                      {JSON.stringify(JSON.parse(decodeURIComponent(params.debug)), null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            )}
             {params.error === 'no_ig_business' && 'Instagramビジネスアカウントが見つかりません。InstagramアカウントをFacebookページに連携してください。'}
-            {params.error === 'token_exchange_failed' && 'トークンの取得に失敗しました。'}
+            {params.error === 'token_exchange_failed' && `トークンの取得に失敗しました。${params.detail ? `詳細: ${params.detail}` : ''}`}
+            {params.error === 'long_token_failed' && `長期トークンの取得に失敗しました。${params.detail ? `詳細: ${params.detail}` : ''}`}
+            {params.error === 'pages_failed' && 'Facebookページの取得に失敗しました。'}
+            {params.error === 'ig_account_failed' && 'Instagramアカウントの取得に失敗しました。'}
+            {params.error === 'save_failed' && 'データの保存に失敗しました。'}
             {params.error === 'unknown' && 'エラーが発生しました。もう一度お試しください。'}
           </div>
         )}
