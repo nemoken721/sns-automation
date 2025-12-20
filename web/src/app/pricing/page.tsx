@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { PLANS } from '@/lib/stripe/config'
 import { PricingCard } from '@/components/PricingCard'
+import { Footer } from '@/components/Footer'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -102,6 +102,8 @@ export default async function PricingPage() {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   )
 }
