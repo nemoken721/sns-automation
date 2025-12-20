@@ -5,9 +5,12 @@ import OpenAI from 'openai'
 // 動的レンダリングを強制
 export const dynamic = 'force-dynamic'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
+// OpenAIクライアントを遅延初期化
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY!,
+  })
+}
 
 interface GenerateIdeasRequest {
   count: number                    // 生成するアイデアの数
@@ -128,6 +131,7 @@ ${analyticsContext}
 
 ${count}件のユニークで今すぐバズりそうなアイデアを生成してください。`
 
+    const openai = getOpenAIClient()
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
