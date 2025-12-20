@@ -20,6 +20,7 @@ class VideoComposer:
         self.config = config
         self.video_config = config.video
         self.slide_config = config.slides
+        self.project_root = get_project_root()
 
     def compose_video(
         self,
@@ -28,6 +29,7 @@ class VideoComposer:
         audio_path: Path,
         output_path: Path,
         bgm_path: Optional[Path] = None,
+        subtitle_path: Optional[Path] = None,
     ) -> Path:
         """
         スライドと音声から動画を合成する
@@ -38,6 +40,7 @@ class VideoComposer:
             audio_path: ナレーション音声のパス
             output_path: 出力先パス
             bgm_path: BGMのパス（オプション）
+            subtitle_path: 字幕SRTファイルのパス（オプション）
 
         Returns:
             Path: 生成された動画のパス
@@ -55,7 +58,13 @@ class VideoComposer:
         concat_video = temp_dir / "concat.mp4"
         self._concat_videos(slide_videos, concat_video)
 
-        # 3. 音声を追加
+        # 3. 字幕を追加（ある場合）
+        if subtitle_path and subtitle_path.exists():
+            subtitled_video = temp_dir / "subtitled.mp4"
+            self._add_subtitles(concat_video, subtitle_path, subtitled_video)
+            concat_video = subtitled_video
+
+        # 4. 音声を追加
         if bgm_path and bgm_path.exists():
             # BGMがある場合はミックス
             self._add_audio_with_bgm(concat_video, audio_path, bgm_path, output_path)
@@ -63,7 +72,7 @@ class VideoComposer:
             # ナレーションのみ
             self._add_audio(concat_video, audio_path, output_path)
 
-        # 4. 一時ファイルの削除
+        # 5. 一時ファイルの削除
         if not self.config.output.keep_temp_files:
             self._cleanup_temp_files(temp_dir)
 
@@ -141,6 +150,81 @@ class VideoComposer:
         ]
 
         self._run_ffmpeg(cmd)
+
+    def _add_subtitles(
+        self,
+        video_path: Path,
+        subtitle_path: Path,
+        output_path: Path,
+    ) -> None:
+        """
+        動画に字幕を焼き込む
+
+        字幕スタイル:
+        - 画面下部中央に配置
+        - 大きめのフォントサイズ（視認性重視）
+        - 白文字＋黒の縁取り（どんな背景でも読みやすい）
+        - 半透明の背景ボックス
+        """
+        logger.info("Adding subtitles to video...")
+
+        # フォントパスを取得
+        fonts_dir = self.project_root / self.config.fonts.directory
+        font_file = fonts_dir / self.config.fonts.bold
+
+        # フォントが存在しない場合はデフォルトを使用
+        if not font_file.exists():
+            logger.warning(f"Font not found: {font_file}, using system default")
+            font_file = None
+
+        # 字幕フィルター設定
+        # 画面中央より少し下に配置（画面の約70%の位置）
+        # 1080x1920 (9:16) の画面で読みやすいサイズ
+        # MarginV は下からの距離: 1920 * 0.28 = 約538px (画面の72%の位置に表示)
+        subtitle_style = (
+            "FontSize=36,"                # プロフェッショナルなサイズ
+            "FontName=Noto Sans JP Bold,"
+            "PrimaryColour=&H00FFFFFF,"   # 白文字
+            "OutlineColour=&H00000000,"   # 黒の縁取り
+            "BackColour=&H99000000,"      # 半透明黒（99 = 約60%不透明度、後ろが少し見える）
+            "BorderStyle=4,"              # 縁取り + 半透明背景ボックス
+            "Outline=2,"                  # 縁取り太さ
+            "Shadow=0,"                   # シャドウなし（クリーンな見た目）
+            "MarginV=540,"                # 画面中央やや下（下から540px = 画面の約72%位置）
+            "MarginL=60,"                 # 左右マージン（少し広めに）
+            "MarginR=60,"
+            "Alignment=2"                 # 下部中央揃え
+        )
+
+        # パスをエスケープ（Windowsのバックスラッシュ対応）
+        srt_path_escaped = str(subtitle_path).replace('\\', '/').replace(':', '\\:')
+
+        # 字幕フィルター
+        if font_file:
+            font_path_escaped = str(font_file).replace('\\', '/').replace(':', '\\:')
+            subtitle_filter = (
+                f"subtitles='{srt_path_escaped}':"
+                f"fontsdir='{str(fonts_dir).replace(chr(92), '/').replace(':', chr(92)+':')}':"
+                f"force_style='{subtitle_style}'"
+            )
+        else:
+            subtitle_filter = (
+                f"subtitles='{srt_path_escaped}':"
+                f"force_style='{subtitle_style}'"
+            )
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", str(video_path),
+            "-vf", subtitle_filter,
+            "-c:v", self.video_config.video_codec,
+            "-b:v", self.video_config.video_bitrate,
+            "-c:a", "copy",
+            str(output_path),
+        ]
+
+        self._run_ffmpeg(cmd)
+        logger.info("Subtitles added successfully")
 
     def _add_audio(
         self,
@@ -234,6 +318,7 @@ def compose_video(
     audio_path: Path,
     output_path: Path,
     bgm_path: Optional[Path] = None,
+    subtitle_path: Optional[Path] = None,
 ) -> Path:
     """
     動画を合成するヘルパー関数
@@ -244,9 +329,10 @@ def compose_video(
         audio_path: ナレーション音声のパス
         output_path: 出力先パス
         bgm_path: BGMのパス（オプション）
+        subtitle_path: 字幕SRTファイルのパス（オプション）
 
     Returns:
         Path: 生成された動画のパス
     """
     composer = VideoComposer()
-    return composer.compose_video(slide_paths, slides, audio_path, output_path, bgm_path)
+    return composer.compose_video(slide_paths, slides, audio_path, output_path, bgm_path, subtitle_path)
